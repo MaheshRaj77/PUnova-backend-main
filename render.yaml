@@ -1,0 +1,81 @@
+services:
+  - type: web
+    name: punova-backend
+    runtime: node
+    region: singapore
+    plan: free
+    buildCommand: npm install && npm run seed:all
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    
+    envVars:
+      # ── Server Configuration ──
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      
+      # ── Database (PostgreSQL via Neon) ──
+      - key: DATABASE_URL
+        sync: false
+      
+      # ── JWT Authentication ──
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRY
+        value: 7d
+      - key: REFRESH_TOKEN_SECRET
+        sync: false
+      - key: REFRESH_TOKEN_EXPIRY
+        value: 30d
+      
+      # ── Cloudinary (File Storage) ──
+      - key: CLOUDINARY_NAME
+        sync: false
+      - key: CLOUDINARY_KEY
+        sync: false
+      - key: CLOUDINARY_SECRET
+        sync: false
+      
+      # ── Upstash Redis (Caching & Rate Limiting) ──
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      
+      # ── CORS Configuration ──
+      - key: ALLOWED_ORIGINS
+        sync: false
+      
+      # ── Firebase (Optional - for push notifications) ──
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      
+      # ── Email Configuration (Optional) ──
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        sync: false
+      
+      # ── Admin Setup ──
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      
+      # ── Logging ──
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_FORMAT
+        value: json
