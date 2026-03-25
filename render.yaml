@@ -4,23 +4,44 @@ services:
     runtime: node
     region: singapore
     plan: free
+    
+    # Build Configuration
     buildCommand: npm install && npm run seed:all
     startCommand: npm start
+    
+    # Health Check Configuration
     healthCheckPath: /api/v1/health
+    healthCheckInterval: 10
+    healthCheckTimeout: 5
+    
+    # Auto Deploy - pushes to GitHub trigger automatic deployment
     autoDeploy: true
     
+    # Environment Variables
     envVars:
-      # ── Server Configuration ──
+      # ═════════════════════════════════════════════════════════════
+      # SERVER CONFIGURATION (Fixed Values)
+      # ═════════════════════════════════════════════════════════════
       - key: NODE_ENV
         value: production
       - key: PORT
         value: "3000"
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_FORMAT
+        value: json
       
-      # ── Database (PostgreSQL via Neon) ──
+      # ═════════════════════════════════════════════════════════════
+      # DATABASE CONFIGURATION (Neon PostgreSQL)
+      # ═════════════════════════════════════════════════════════════
+      # Set DATABASE_URL in Render Dashboard
       - key: DATABASE_URL
         sync: false
       
-      # ── JWT Authentication ──
+      # ═════════════════════════════════════════════════════════════
+      # JWT AUTHENTICATION
+      # ═════════════════════════════════════════════════════════════
+      # Generate with: openssl rand -hex 32
       - key: JWT_SECRET
         sync: false
       - key: JWT_EXPIRY
@@ -30,7 +51,9 @@ services:
       - key: REFRESH_TOKEN_EXPIRY
         value: 30d
       
-      # ── Cloudinary (File Storage) ──
+      # ═════════════════════════════════════════════════════════════
+      # FILE STORAGE (Cloudinary)
+      # ═════════════════════════════════════════════════════════════
       - key: CLOUDINARY_NAME
         sync: false
       - key: CLOUDINARY_KEY
@@ -38,17 +61,24 @@ services:
       - key: CLOUDINARY_SECRET
         sync: false
       
-      # ── Upstash Redis (Caching & Rate Limiting) ──
+      # ═════════════════════════════════════════════════════════════
+      # CACHING & RATE LIMITING (Upstash Redis)
+      # ═════════════════════════════════════════════════════════════
       - key: UPSTASH_REDIS_REST_URL
         sync: false
       - key: UPSTASH_REDIS_REST_TOKEN
         sync: false
       
-      # ── CORS Configuration ──
+      # ═════════════════════════════════════════════════════════════
+      # CORS CONFIGURATION
+      # ═════════════════════════════════════════════════════════════
+      # Format: https://example.com,https://app.example.com
       - key: ALLOWED_ORIGINS
         sync: false
       
-      # ── Firebase (Optional - for push notifications) ──
+      # ═════════════════════════════════════════════════════════════
+      # FIREBASE (Push Notifications & Analytics)
+      # ═════════════════════════════════════════════════════════════
       - key: FIREBASE_PROJECT_ID
         sync: false
       - key: FIREBASE_PRIVATE_KEY
@@ -56,7 +86,10 @@ services:
       - key: FIREBASE_CLIENT_EMAIL
         sync: false
       
-      # ── Email Configuration (Optional) ──
+      # ═════════════════════════════════════════════════════════════
+      # EMAIL CONFIGURATION (Optional - Email Notifications)
+      # ═════════════════════════════════════════════════════════════
+      # Leave empty if not using email functionality
       - key: SMTP_HOST
         sync: false
       - key: SMTP_PORT
@@ -68,14 +101,10 @@ services:
       - key: SMTP_FROM_EMAIL
         sync: false
       
-      # ── Admin Setup ──
+      # ═════════════════════════════════════════════════════════════
+      # ADMIN ACCOUNT SETUP (Created on first deploy)
+      # ═════════════════════════════════════════════════════════════
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
-      
-      # ── Logging ──
-      - key: LOG_LEVEL
-        value: info
-      - key: LOG_FORMAT
-        value: json
