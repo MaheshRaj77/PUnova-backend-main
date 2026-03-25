@@ -73,10 +73,11 @@ function validateSchema(data, rules) {
     // Type check
     if (rule.type) {
       const actualType = typeof value;
+      // Skip type check for 'email' and 'url' as they will be validated separately
       if (rule.type === 'array' && !Array.isArray(value)) {
         errors.push(`${field} must be an array`);
         continue;
-      } else if (rule.type !== 'array' && actualType !== rule.type) {
+      } else if (rule.type !== 'array' && rule.type !== 'email' && rule.type !== 'url' && actualType !== rule.type) {
         errors.push(`${field} must be a ${rule.type}`);
         continue;
       }
