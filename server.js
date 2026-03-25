@@ -65,7 +65,28 @@ app.get('/api/v1/health', (req, res) => {
       uptime: process.uptime(),
     });
 });
-
+// ── Database Status Check (For Debugging) ────────────────────────
+app.get('/api/v1/db-status', async (req, res) => {
+    try {
+      const dbInstance = require('./config/db');
+      // Try to query the users table to verify it exists
+      const result = await dbInstance.select().from(require('./db/schema').users).limit(1);
+      res.json({
+        status: 'connected',
+        database: 'Neon PostgreSQL',
+        tables_accessible: true,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      logger.error('Database check failed', error);
+      res.status(500).json({
+        status: 'error',
+        database: 'Neon PostgreSQL',
+        error: error.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+});
 // ── API Routes ───────────────────────────────────────────────────
 app.use('/api/v1/auth', require('./routes/auth.routes'));
 app.use('/api/v1/forum', require('./routes/forum.routes'));
@@ -85,7 +106,7 @@ app.use((req, res) => {
 app.use(errorHandler);
 
 // ── Start Server (Neon is serverless — no connection step needed) ─
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     logger.info(`🚀 PUnova API Server Started`, {
       port: PORT,
       environment: NODE_ENV,
@@ -94,6 +115,26 @@ app.listen(PORT, () => {
     logger.info(`📋 Health Check: http://localhost:${PORT}/api/v1/health`);
     logger.info(`💾 Database: Connected to PostgreSQL (Neon)`);
     logger.info(`📍 CORS Origins: ${allowedOrigins.join(', ')}`);
+    
+    // ── Run migrations if DB is fresh ────────────────────────────────
+    if (NODE_ENV === 'production') {
+      try {
+        // Try to check if tables exist
+        const dbInstance = require('./config/db');
+        const { users } = require('./db/schema');
+        await dbInstance.select().from(users).limit(1);
+        logger.info('✅ Database schema verified - tables exist');
+      } catch (err) {
+        logger.warn('⚠️  Database tables may not exist, attempting migration...');
+        try {
+          const { execSync } = require('child_process');
+          execSync('npm run migrate', { stdio: 'inherit' });
+          logger.info('✅ Database migration completed');
+        } catch (migError) {
+          logger.error('❌ Failed to run migration:', migError.message);
+        }
+      }
+    }
 });
 
 module.exports = app;
