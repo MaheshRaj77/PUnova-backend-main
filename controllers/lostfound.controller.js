@@ -3,7 +3,7 @@ const db = require('../config/db');
 const { lostFoundItems, users } = require('../db/schema');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { invalidateCache } = require('../middleware/cache');
-const cloudinary = require('../config/cloudinary');
+const { cloudinary } = require('../config/cloudinary');
 
 const getItems = asyncHandler(async (req, res) => {
     const { type } = req.query;

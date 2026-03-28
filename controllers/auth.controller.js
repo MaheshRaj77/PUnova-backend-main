@@ -7,6 +7,14 @@ const { uploadToCloudinary, deleteFromCloudinary } = require('../config/cloudina
 const { asyncHandler } = require('../middleware/errorHandler');
 
 // ── Validation Helpers ───────────────────────────────────────────────
+function sanitizeInput(input) {
+  // Remove leading/trailing whitespace
+  let sanitized = String(input).trim();
+  // Remove potentially dangerous characters but allow reasonable text
+  sanitized = sanitized.replace(/[<>]/g, '');
+  return sanitized;
+}
+
 function validateEmail(email) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return emailRegex.test(email);
@@ -34,13 +42,16 @@ function sanitizeUser(row) {
 const register = asyncHandler(async (req, res) => {
     const { email, password, full_name, department, year, semester, roll_number } = req.body;
 
-    // Validate inputs
-    if (!email || !password || !full_name) {
+    // Validate inputs - trim and check
+    const trimmedEmail = sanitizeInput(email);
+    const trimmedName = sanitizeInput(full_name);
+
+    if (!trimmedEmail || !password || !trimmedName) {
         return res.status(400).json({ error: 'Email, password, and full_name are required.' });
     }
 
     // Validate email format
-    if (!validateEmail(email)) {
+    if (!validateEmail(trimmedEmail)) {
         return res.status(400).json({ error: 'Invalid email format.' });
     }
 
@@ -51,12 +62,12 @@ const register = asyncHandler(async (req, res) => {
     }
 
     // Validate full_name length
-    if (full_name.length < 2 || full_name.length > 100) {
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
         return res.status(400).json({ error: 'Full name must be between 2 and 100 characters.' });
     }
 
     // Check if email already exists
-    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email.toLowerCase()));
+    const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, trimmedEmail.toLowerCase()));
     if (existing) {
         return res.status(409).json({ error: 'Email already registered.' });
     }
@@ -64,13 +75,13 @@ const register = asyncHandler(async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10);
 
     const [user] = await db.insert(users).values({
-        email: email.toLowerCase(),
+        email: trimmedEmail.toLowerCase(),
         password_hash,
-        full_name,
-        department: department || null,
-        year: year || null,
-        semester: semester || null,
-        roll_number: roll_number || null,
+        full_name: trimmedName,
+        department: department ? sanitizeInput(department) : null,
+        year: year != null ? String(year) : null,
+        semester: semester != null ? String(semester) : null,
+        roll_number: roll_number ? sanitizeInput(roll_number) : null,
         role: 'student', // Default role
     }).returning();
 
@@ -89,8 +100,8 @@ const register = asyncHandler(async (req, res) => {
 
     res.status(201).json({
       user: sanitizeUser(user),
-      accessToken,
-      refreshToken,
+      token: accessToken,
+      refresh_token: refreshToken,
     });
 });
 
@@ -101,11 +112,13 @@ const login = asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    if (!validateEmail(email)) {
+    const trimmedEmail = sanitizeInput(email);
+    
+    if (!validateEmail(trimmedEmail)) {
         return res.status(400).json({ error: 'Invalid email format.' });
     }
 
-    const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+    const [user] = await db.select().from(users).where(eq(users.email, trimmedEmail.toLowerCase()));
     if (!user) {
         return res.status(401).json({ error: 'Invalid email or password.' });
     }
@@ -130,8 +143,8 @@ const login = asyncHandler(async (req, res) => {
 
     res.json({
       user: sanitizeUser(user),
-      accessToken,
-      refreshToken,
+      token: accessToken,
+      refresh_token: refreshToken,
     });
 });
 
@@ -148,11 +161,11 @@ const updateProfile = asyncHandler(async (req, res) => {
     const { full_name, department, year, semester, roll_number, bio } = req.body;
 
     const updates = {};
-    if (full_name) updates.full_name = full_name;
-    if (department) updates.department = department;
-    if (year) updates.year = year;
-    if (semester) updates.semester = semester;
-    if (roll_number) updates.roll_number = roll_number;
+    if (full_name !== undefined) updates.full_name = full_name || null;
+    if (department !== undefined) updates.department = department || null;
+    if (year !== undefined) updates.year = year != null ? String(year) : null;
+    if (semester !== undefined) updates.semester = semester != null ? String(semester) : null;
+    if (roll_number !== undefined) updates.roll_number = roll_number || null;
     if (bio !== undefined) updates.bio = bio;
     updates.updated_at = new Date();
 
@@ -222,7 +235,8 @@ const changePassword = asyncHandler(async (req, res) => {
 
 // ── NEW: Refresh Token Endpoint ──────────────────────────────────────
 const refreshToken = asyncHandler(async (req, res) => {
-    const { refreshToken: token } = req.body;
+    // Accept both field names for compatibility (camelCase and snake_case)
+    const token = req.body.refreshToken || req.body.refresh_token;
 
     if (!token) {
         return res.status(400).json({ error: 'Refresh token is required.' });
@@ -245,7 +259,7 @@ const refreshToken = asyncHandler(async (req, res) => {
             { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '30d' }
         );
 
-        res.json({ accessToken, refreshToken: newRefreshToken });
+        res.json({ token: accessToken, refresh_token: newRefreshToken });
     } catch (error) {
         res.status(401).json({ error: 'Invalid or expired refresh token.' });
     }

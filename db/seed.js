@@ -1,6 +1,6 @@
 require('dotenv').config();
-const { neon } = require('@neondatabase/serverless');
-const { drizzle } = require('drizzle-orm/neon-http');
+const { Client } = require('pg');
+const { drizzle } = require('drizzle-orm/node-postgres');
 const { services, timetable, alerts } = require('./schema');
 
 async function seed() {
@@ -9,10 +9,11 @@ async function seed() {
         process.exit(1);
     }
 
-    const sql = neon(process.env.DATABASE_URL);
-    const db = drizzle(sql);
+    const client = new Client({ connectionString: process.env.DATABASE_URL });
+    await client.connect();
+    const db = drizzle(client);
 
-    console.log('🌱 Seeding Neon DB (PostgreSQL)...');
+    console.log('🌱 Seeding Supabase DB (PostgreSQL)...');
 
     // Clear existing seed data (with error handling for first run)
     try {
@@ -53,7 +54,8 @@ async function seed() {
     ]);
     console.log('  ✅ Alerts seeded');
 
-    console.log('\n🎉 All seed data written to Neon DB (PostgreSQL) successfully!');
+    console.log('\n🎉 All seed data written to Supabase (PostgreSQL) successfully!');
+    await client.end();
     process.exit(0);
 }
 

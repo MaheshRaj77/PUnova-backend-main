@@ -16,17 +16,24 @@ require('./config/db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';  // ✅ Listen on all interfaces
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // ── Security: CORS Configuration with Whitelist ──────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
-  .split(',')
-  .map(origin => origin.trim());
+const allowedOrigins = NODE_ENV === 'development'
+  ? ['*']  // In development: Allow all origins (including IP addresses)
+  : (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
+      .split(',')
+      .map(origin => origin.trim());
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps)
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Development: Allow all origins
+    if (NODE_ENV === 'development') {
+      callback(null, true);
+    }
+    // Production: Allow requests with no origin (like mobile apps) or whitelisted origins
+    else if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -73,7 +80,7 @@ app.get('/api/v1/db-status', async (req, res) => {
       const result = await dbInstance.select().from(require('./db/schema').users).limit(1);
       res.json({
         status: 'connected',
-        database: 'Neon PostgreSQL',
+        database: 'Supabase PostgreSQL',
         tables_accessible: true,
         timestamp: new Date().toISOString(),
       });
@@ -81,7 +88,7 @@ app.get('/api/v1/db-status', async (req, res) => {
       logger.error('Database check failed', error);
       res.status(500).json({
         status: 'error',
-        database: 'Neon PostgreSQL',
+        database: 'Supabase PostgreSQL',
         error: error.message,
         timestamp: new Date().toISOString(),
       });
@@ -96,7 +103,8 @@ app.use('/api/v1/alerts', require('./routes/alerts.routes'));
 app.use('/api/v1/lost-found', require('./routes/lostfound.routes'));
 app.use('/api/v1/timetable', require('./routes/timetable.routes'));
 app.use('/api/v1/results', require('./routes/results.routes'));
-app.use('/api/v1/services', require('./routes/services.routes'));app.use('/api/v1/reports', require('./routes/reports.routes')); // ✅ NEW
+app.use('/api/v1/services', require('./routes/services.routes'));
+app.use('/api/v1/reports', require('./routes/reports.routes'));
 // ── 404 ──────────────────────────────────────────────────────────
 app.use((req, res) => {
     res.status(404).json({ error: 'Route not found' });
@@ -105,15 +113,16 @@ app.use((req, res) => {
 // ── Global Error Handler ─────────────────────────────────────────
 app.use(errorHandler);
 
-// ── Start Server (Neon is serverless — no connection step needed) ─
-app.listen(PORT, async () => {
+// ── Start Server (Listen on all interfaces for external access) ─
+app.listen(PORT, HOST, async () => {
     logger.info(`🚀 PUnova API Server Started`, {
+      host: HOST,
       port: PORT,
       environment: NODE_ENV,
       uptime: process.uptime(),
     });
     logger.info(`📋 Health Check: http://localhost:${PORT}/api/v1/health`);
-    logger.info(`💾 Database: Connected to PostgreSQL (Neon)`);
+    logger.info(`💾 Database: Connected to PostgreSQL (Supabase)`);
     logger.info(`📍 CORS Origins: ${allowedOrigins.join(', ')}`);
     
     // ── Run migrations if DB is fresh ────────────────────────────────

@@ -24,8 +24,8 @@ const registerSchema = {
     password: { required: true, type: 'string', minLength: 8 },
     full_name: { required: true, type: 'string', minLength: 2, maxLength: 100 },
     department: { required: false, type: 'string', maxLength: 100 },
-    year: { required: false, type: 'number', min: 1, max: 5 },
-    semester: { required: false, type: 'number', min: 1, max: 8 },
+    year: { required: false, type: 'string', maxLength: 20 },
+    semester: { required: false, type: 'string', maxLength: 10 },
     roll_number: { required: false, type: 'string', maxLength: 50 },
   },
 };
@@ -48,16 +48,16 @@ const updateProfileSchema = {
   body: {
     full_name: { required: false, type: 'string', minLength: 2, maxLength: 100 },
     department: { required: false, type: 'string', maxLength: 100 },
-    year: { required: false, type: 'number' },
-    semester: { required: false, type: 'number' },
+    year: { required: false, type: 'string', maxLength: 20 },
+    semester: { required: false, type: 'string', maxLength: 10 },
     roll_number: { required: false, type: 'string', maxLength: 50 },
     bio: { required: false, type: 'string', maxLength: 500 },
   },
 };
 
 // ── Public Routes ────────────────────────────────────────────────────
-router.post('/register', authLimiter, validate(registerSchema), register);
-router.post('/login', authLimiter, validate(loginSchema), login);
+router.post('/register', validate(registerSchema), register);
+router.post('/login', validate(loginSchema), login);
 
 // ── Token Routes ────────────────────────────────────────────────────
 router.post('/refresh-token', refreshToken); // No auth needed for refresh

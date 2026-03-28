@@ -13,7 +13,7 @@ const { asyncHandler } = require('../middleware/errorHandler');
  * Get academic report for a user
  */
 const getAcademicReport = asyncHandler(async (req, res) => {
-    const userId = parseInt(req.params.userId);
+    const userId = req.params.userId;
 
     // Only allow users to view their own data, or admins to view anyone's
     if (req.user.id !== userId && req.user.role !== 'admin') {

@@ -49,7 +49,7 @@ function authorizeOwnerOrAdmin() {
     }
 
     const requestedUserId = req.params.userId || req.body.user_id;
-    const isOwner = req.user.id === parseInt(requestedUserId);
+    const isOwner = req.user.id === requestedUserId;
     const isAdmin = req.user.role === 'admin';
 
     if (!isOwner && !isAdmin) {
