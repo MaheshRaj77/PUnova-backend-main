@@ -5,11 +5,13 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const { invalidateCache } = require('../middleware/cache');
 
 const getPosts = asyncHandler(async (req, res) => {
-    const rawPosts = await db.select({
+    const { category } = req.query;
+    const query = db.select({
         id: forumPosts.id,
         user_id: forumPosts.user_id,
         title: forumPosts.title,
         body: forumPosts.body,
+        category: forumPosts.category,
         likes_count: forumPosts.likes_count,
         replies_count: forumPosts.replies_count,
         created_at: forumPosts.created_at,
@@ -22,19 +24,27 @@ const getPosts = asyncHandler(async (req, res) => {
     .orderBy(desc(forumPosts.created_at))
     .limit(50);
 
+    const rawPosts = category && category !== 'All'
+        ? await query.where(eq(forumPosts.category, category))
+        : await query;
+
     res.json({ posts: rawPosts });
 });
 
 const createPost = asyncHandler(async (req, res) => {
-    const { title, body } = req.body;
+    const { title, body, category } = req.body;
     if (!title || !body) {
         return res.status(400).json({ error: 'Title and body are required.' });
     }
+
+    const validCategories = ['General', 'Study Groups', 'Events', 'Marketplace'];
+    const postCategory = validCategories.includes(category) ? category : 'General';
 
     const [post] = await db.insert(forumPosts).values({
         user_id: req.user.id,
         title,
         body,
+        category: postCategory,
     }).returning();
 
     await invalidateCache('cache:/api/v1/forum');

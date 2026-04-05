@@ -72,8 +72,11 @@ app.get('/api/v1/health', (req, res) => {
       uptime: process.uptime(),
     });
 });
-// ── Database Status Check (For Debugging) ────────────────────────
-app.get('/api/v1/db-status', async (req, res) => {
+// ── Database Status Check (Admin only, not exposed publicly) ─────────
+app.get('/api/v1/db-status', require('./middleware/auth').authenticate, async (req, res) => {
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Forbidden.' });
+    }
     try {
       const dbInstance = require('./config/db');
       // Try to query the users table to verify it exists

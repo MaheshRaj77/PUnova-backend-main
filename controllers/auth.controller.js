@@ -158,7 +158,7 @@ const getProfile = asyncHandler(async (req, res) => {
 });
 
 const updateProfile = asyncHandler(async (req, res) => {
-    const { full_name, department, year, semester, roll_number, bio } = req.body;
+    const { full_name, department, year, semester, roll_number, bio, phone, gender, date_of_birth } = req.body;
 
     const updates = {};
     if (full_name !== undefined) updates.full_name = full_name || null;
@@ -167,6 +167,9 @@ const updateProfile = asyncHandler(async (req, res) => {
     if (semester !== undefined) updates.semester = semester != null ? String(semester) : null;
     if (roll_number !== undefined) updates.roll_number = roll_number || null;
     if (bio !== undefined) updates.bio = bio;
+    if (phone !== undefined) updates.phone = phone || null;
+    if (gender !== undefined) updates.gender = gender || null;
+    if (date_of_birth !== undefined) updates.date_of_birth = date_of_birth || null;
     updates.updated_at = new Date();
 
     const [user] = await db.update(users).set(updates).where(eq(users.id, req.user.id)).returning();
@@ -245,16 +248,25 @@ const refreshToken = asyncHandler(async (req, res) => {
     try {
         const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_SECRET);
 
-        // Generate new access token
+        // Look up current user to get role (role might have changed)
+        const [user] = await db.select({ id: users.id, email: users.email, role: users.role })
+            .from(users)
+            .where(eq(users.id, decoded.id));
+
+        if (!user) {
+            return res.status(401).json({ error: 'User not found.' });
+        }
+
+        // Generate new access token (include role for authorization checks)
         const accessToken = jwt.sign(
-            { id: decoded.id, email: decoded.email },
+            { id: user.id, email: user.email, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRY || '7d' }
         );
 
-        // Generate new refresh token
+        // Rotate refresh token
         const newRefreshToken = jwt.sign(
-            { id: decoded.id, email: decoded.email },
+            { id: user.id, email: user.email },
             process.env.REFRESH_TOKEN_SECRET,
             { expiresIn: process.env.REFRESH_TOKEN_EXPIRY || '30d' }
         );
