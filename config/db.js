@@ -7,8 +7,24 @@ if (!process.env.DATABASE_URL) {
     process.exit(1);
 }
 
+// Auto-convert Supabase direct URL (IPv6-only) to transaction-mode pooler URL (IPv4)
+// Direct:  postgresql://postgres:{pass}@db.{ref}.supabase.co:5432/postgres
+// Pooler:  postgresql://postgres.{ref}:{pass}@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres
+function resolveDbUrl(url) {
+  const match = url.match(/^(postgresql|postgres):\/\/postgres:([^@]+)@db\.([a-z0-9]+)\.supabase\.co:5432\/(.+)$/);
+  if (match) {
+    const [, , password, ref, dbname] = match;
+    const poolerUrl = `postgresql://postgres.${ref}:${password}@aws-1-ap-northeast-1.pooler.supabase.com:6543/${dbname}`;
+    console.log('ℹ️  Converted Supabase direct URL to IPv4 pooler URL');
+    return poolerUrl;
+  }
+  return url;
+}
+
+const connectionString = resolveDbUrl(process.env.DATABASE_URL);
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   max: parseInt(process.env.DB_POOL_MAX) || 10,        // max concurrent connections
   idleTimeoutMillis: 30000,                             // release idle connections after 30s
   connectionTimeoutMillis: 10000,                       // fail fast if can't connect in 10s
