@@ -2,6 +2,7 @@ const { eq, and, asc } = require('drizzle-orm');
 const db = require('../config/db');
 const { results } = require('../db/schema');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { invalidateCache } = require('../middleware/cache');
 
 const getResults = asyncHandler(async (req, res) => {
     const userId = req.user.id;
@@ -52,6 +53,7 @@ const addResult = asyncHandler(async (req, res) => {
         grade_point: grade_point ? parseFloat(grade_point) : 0,
     }).returning();
 
+    await invalidateCache('cache:/api/v1/results');
     res.status(201).json({ result });
 });
 

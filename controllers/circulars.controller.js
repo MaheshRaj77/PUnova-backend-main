@@ -2,6 +2,7 @@ const { desc } = require('drizzle-orm');
 const db = require('../config/db');
 const { circulars } = require('../db/schema');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { invalidateCache } = require('../middleware/cache');
 
 const getCirculars = asyncHandler(async (req, res) => {
     const rows = await db.select().from(circulars).orderBy(desc(circulars.published_date));
@@ -21,6 +22,7 @@ const createCircular = asyncHandler(async (req, res) => {
         published_date: new Date().toISOString().split('T')[0],
     }).returning();
 
+    await invalidateCache('cache:/api/v1/circulars');
     res.status(201).json({ circular });
 });
 

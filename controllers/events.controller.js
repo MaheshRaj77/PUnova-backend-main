@@ -2,6 +2,7 @@ const { asc } = require('drizzle-orm');
 const db = require('../config/db');
 const { events } = require('../db/schema');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { invalidateCache } = require('../middleware/cache');
 
 const getEvents = asyncHandler(async (req, res) => {
     const rows = await db.select().from(events).orderBy(asc(events.event_date));
@@ -29,6 +30,7 @@ const createEvent = asyncHandler(async (req, res) => {
         category: category || 'general',
     }).returning();
 
+    await invalidateCache('cache:/api/v1/events');
     res.status(201).json({
         event: {
             ...event,

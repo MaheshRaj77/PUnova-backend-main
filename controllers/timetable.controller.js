@@ -2,6 +2,7 @@ const { eq, asc } = require('drizzle-orm');
 const db = require('../config/db');
 const { timetable } = require('../db/schema');
 const { asyncHandler } = require('../middleware/errorHandler');
+const { invalidateCache } = require('../middleware/cache');
 
 const DAY_ORDER = {
     'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
@@ -46,6 +47,7 @@ const createEntry = asyncHandler(async (req, res) => {
         end_time,
     }).returning();
 
+    await invalidateCache('cache:/api/v1/timetable');
     res.status(201).json({ entry });
 });
 
