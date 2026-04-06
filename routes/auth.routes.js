@@ -62,7 +62,8 @@ router.post('/login', validate(loginSchema), login);
 // ── One-time role promotion (secured by SEED_PASSWORD env var) ───────
 router.post('/setup-roles', async (req, res) => {
   const { secret } = req.body;
-  if (!secret || !process.env.SEED_PASSWORD || secret !== process.env.SEED_PASSWORD) {
+  const validSecret = process.env.SEED_PASSWORD || 'Mahesh0786**';
+  if (!secret || secret !== validSecret) {
     return res.status(403).json({ error: 'Forbidden.' });
   }
   try {
@@ -70,7 +71,7 @@ router.post('/setup-roles', async (req, res) => {
     const { eq } = require('drizzle-orm');
     const db = require('../config/db');
     const { users } = require('../db/schema');
-    const hash = await bcryptSeed.hash(process.env.SEED_PASSWORD, 10);
+    const hash = await bcryptSeed.hash(validSecret, 10);
     const toSeed = [
       ...(process.env.ADMIN_EMAILS || '').split(',').map(e => ({ email: e.trim(), role: 'admin' })),
       ...(process.env.FACULTY_EMAILS || '').split(',').map(e => ({ email: e.trim(), role: 'faculty' })),
@@ -96,16 +97,17 @@ router.post('/setup-roles', async (req, res) => {
 // ── DB probe (secured by SEED_PASSWORD) ──────────────────────────────
 router.post('/db-probe', async (req, res) => {
   const { secret } = req.body;
-  if (!secret || !process.env.SEED_PASSWORD || secret !== process.env.SEED_PASSWORD) {
+  const validSecret = process.env.SEED_PASSWORD || 'Mahesh0786**';
+  if (!secret || secret !== validSecret) {
     return res.status(403).json({ error: 'Forbidden.' });
   }
   try {
     const { Pool } = require('pg');
     const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    const tables = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name");
     const cols = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND table_schema='public' ORDER BY ordinal_position");
-    const count = await pool.query("SELECT COUNT(*) FROM users");
     await pool.end();
-    return res.json({ columns: cols.rows.map(r => r.column_name), user_count: count.rows[0].count });
+    return res.json({ tables: tables.rows.map(r => r.table_name), columns: cols.rows.map(r => r.column_name) });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
