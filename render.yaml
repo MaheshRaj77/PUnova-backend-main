@@ -77,6 +77,16 @@ services:
         sync: false
       
       # ═════════════════════════════════════════════════════════════
+      # ADMIN / FACULTY SEED ACCOUNTS
+      # ═════════════════════════════════════════════════════════════
+      - key: ADMIN_EMAILS
+        value: bala@pondiuni.ac.in
+      - key: FACULTY_EMAILS
+        value: mahesh@pondiuni.ac.in
+      - key: SEED_PASSWORD
+        sync: false
+      
+      # ═════════════════════════════════════════════════════════════
       # FIREBASE (Push Notifications & Analytics)
       # ═════════════════════════════════════════════════════════════
       - key: FIREBASE_PROJECT_ID

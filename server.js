@@ -147,6 +147,41 @@ app.listen(PORT, HOST, async () => {
         }
       }
     }
+
+    // ── Seed admin / faculty accounts from env vars ───────────────────
+    // ADMIN_EMAILS and FACULTY_EMAILS are comma-separated lists.
+    // SEED_PASSWORD is the shared password for all seeded accounts.
+    try {
+      const seedPassword = process.env.SEED_PASSWORD;
+      if (seedPassword) {
+        const bcryptSeed = require('bcryptjs');
+        const { eq: eqSeed } = require('drizzle-orm');
+        const dbSeed = require('./config/db');
+        const { users: usersTable } = require('./db/schema');
+
+        const toSeed = [
+          ...(process.env.ADMIN_EMAILS || '').split(',').map(e => ({ email: e.trim(), role: 'admin' })),
+          ...(process.env.FACULTY_EMAILS || '').split(',').map(e => ({ email: e.trim(), role: 'faculty' })),
+        ].filter(u => u.email);
+
+        if (toSeed.length) {
+          const hash = await bcryptSeed.hash(seedPassword, 10);
+          for (const u of toSeed) {
+            const [existing] = await dbSeed.select({ id: usersTable.id }).from(usersTable).where(eqSeed(usersTable.email, u.email));
+            if (existing) {
+              await dbSeed.update(usersTable).set({ role: u.role, password_hash: hash }).where(eqSeed(usersTable.email, u.email));
+              logger.info(`✅ Promoted ${u.email} → ${u.role}`);
+            } else {
+              const namePart = u.email.split('@')[0];
+              await dbSeed.insert(usersTable).values({ email: u.email, password_hash: hash, full_name: namePart, role: u.role });
+              logger.info(`✅ Created ${u.role} account: ${u.email}`);
+            }
+          }
+        }
+      }
+    } catch (seedErr) {
+      logger.error('⚠️  Admin seed error:', seedErr.message);
+    }
 });
 
 module.exports = app;
