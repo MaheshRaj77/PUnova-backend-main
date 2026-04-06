@@ -20,23 +20,19 @@ const HOST = process.env.HOST || '0.0.0.0';  // ✅ Listen on all interfaces
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // ── Security: CORS Configuration with Whitelist ──────────────────────
-const allowedOrigins = NODE_ENV === 'development'
-  ? ['*']  // In development: Allow all origins (including IP addresses)
-  : (process.env.ALLOWED_ORIGINS || 'http://localhost:3000')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
       .split(',')
-      .map(origin => origin.trim());
+      .map(origin => origin.trim())
+      .filter(Boolean);
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Development: Allow all origins
-    if (NODE_ENV === 'development') {
-      callback(null, true);
-    }
-    // Production: Allow requests with no origin (like mobile apps) or whitelisted origins
-    else if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests with no origin (mobile apps, curl, server-to-server)
+    // Allow all origins if none are configured
+    if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      callback(null, false);
     }
   },
   credentials: true,
