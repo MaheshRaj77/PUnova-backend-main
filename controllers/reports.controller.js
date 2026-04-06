@@ -5,7 +5,7 @@
 
 const { eq, sql } = require('drizzle-orm');
 const db = require('../config/db');
-const { users, results, events, forumPosts } = require('../db/schema');
+const { users, results, events, forumPosts, circulars, alerts, lostFoundItems } = require('../db/schema');
 const { asyncHandler } = require('../middleware/errorHandler');
 
 /**
@@ -83,23 +83,48 @@ const getCampusStatistics = asyncHandler(async (req, res) => {
         });
     }
 
-    // Get totals
-    const [userCount] = await db.select({ count: sql`count(*)` }).from(users);
-    const [studentCount] = await db
-        .select({ count: sql`count(*)` })
-        .from(users)
-        .where(eq(users.role, 'student'));
-    const [eventCount] = await db.select({ count: sql`count(*)` }).from(events);
-    const [postCount] = await db.select({ count: sql`count(*)` }).from(forumPosts);
+    // User counts by role
+    const [userCount] = await db.select({ count: sql`count(*)::int` }).from(users);
+    const [studentCount] = await db.select({ count: sql`count(*)::int` }).from(users).where(eq(users.role, 'student'));
+    const [facultyCount] = await db.select({ count: sql`count(*)::int` }).from(users).where(eq(users.role, 'faculty'));
+    const [adminCount] = await db.select({ count: sql`count(*)::int` }).from(users).where(eq(users.role, 'admin'));
+
+    // Content counts
+    const [eventCount] = await db.select({ count: sql`count(*)::int` }).from(events);
+    const [postCount] = await db.select({ count: sql`count(*)::int` }).from(forumPosts);
+    const [circularCount] = await db.select({ count: sql`count(*)::int` }).from(circulars);
+    const [alertCount] = await db.select({ count: sql`count(*)::int` }).from(alerts);
+    const [lostFoundCount] = await db.select({ count: sql`count(*)::int` }).from(lostFoundItems);
+
+    // Department breakdown
+    const deptRows = await db.select({
+        department: users.department,
+        count: sql`count(*)::int`,
+    }).from(users).groupBy(users.department).orderBy(sql`count(*) desc`);
+
+    // Recent registrations (last 7 days)
+    const recentRegs = await db.select({
+        date: sql`date(${users.created_at})`,
+        count: sql`count(*)::int`,
+    }).from(users)
+      .where(sql`${users.created_at} >= now() - interval '7 days'`)
+      .groupBy(sql`date(${users.created_at})`)
+      .orderBy(sql`date(${users.created_at}) asc`);
 
     res.json({
-        statistics: {
-            totalUsers: userCount.count || 0,
-            totalStudents: studentCount.count || 0,
-            totalEvents: eventCount.count || 0,
-            totalForumPosts: postCount.count || 0,
-            averageGPA: 3.2, // Should calculate from actual data
+        total_users: userCount.count || 0,
+        students: studentCount.count || 0,
+        faculty: facultyCount.count || 0,
+        admins: adminCount.count || 0,
+        departments: deptRows.map(d => ({ department: d.department, count: d.count })),
+        content_stats: {
+            forum_posts: postCount.count || 0,
+            alerts: alertCount.count || 0,
+            circulars: circularCount.count || 0,
+            lost_found: lostFoundCount.count || 0,
+            events: eventCount.count || 0,
         },
+        recent_registrations: recentRegs.map(r => ({ date: r.date, count: r.count })),
         generatedAt: new Date().toISOString(),
         generatedBy: req.user.email,
     });
