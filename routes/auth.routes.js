@@ -93,6 +93,24 @@ router.post('/setup-roles', async (req, res) => {
   }
 });
 
+// ── DB probe (secured by SEED_PASSWORD) ──────────────────────────────
+router.post('/db-probe', async (req, res) => {
+  const { secret } = req.body;
+  if (!secret || !process.env.SEED_PASSWORD || secret !== process.env.SEED_PASSWORD) {
+    return res.status(403).json({ error: 'Forbidden.' });
+  }
+  try {
+    const { Pool } = require('pg');
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+    const cols = await pool.query("SELECT column_name FROM information_schema.columns WHERE table_name='users' AND table_schema='public' ORDER BY ordinal_position");
+    const count = await pool.query("SELECT COUNT(*) FROM users");
+    await pool.end();
+    return res.json({ columns: cols.rows.map(r => r.column_name), user_count: count.rows[0].count });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // ── Token Routes ────────────────────────────────────────────────────
 router.post('/refresh-token', refreshToken); // No auth needed for refresh
 router.post('/logout', authenticate, logout);
