@@ -36,6 +36,34 @@ const uploadToCloudinary = (buffer, folder = 'punova') => {
 };
 
 /**
+ * Upload a document/file to Cloudinary without image transformations.
+ * Suitable for PDFs, Word, Excel files.
+ * @param {Buffer} buffer
+ * @param {string} folder
+ * @returns {Promise<{url: string, publicId: string}>}
+ */
+const uploadDocumentToCloudinary = (buffer, folder = 'punova/documents') => {
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            {
+                folder,
+                resource_type: 'raw',
+                use_filename: true,
+                unique_filename: true,
+            },
+            (error, result) => {
+                if (error) return reject(error);
+                resolve({
+                    url: result.secure_url,
+                    publicId: result.public_id,
+                });
+            }
+        );
+        stream.end(buffer);
+    });
+};
+
+/**
  * Delete an asset from Cloudinary.
  * @param {string} publicId
  */
@@ -43,4 +71,4 @@ const deleteFromCloudinary = async (publicId) => {
     return cloudinary.uploader.destroy(publicId);
 };
 
-module.exports = { cloudinary, uploadToCloudinary, deleteFromCloudinary };
+module.exports = { cloudinary, uploadToCloudinary, uploadDocumentToCloudinary, deleteFromCloudinary };

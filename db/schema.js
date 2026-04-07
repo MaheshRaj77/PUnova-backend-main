@@ -146,6 +146,7 @@ const results = pgTable('results', {
 const timetable = pgTable('timetable', {
     id: uuid('id').defaultRandom().primaryKey(),
     day_of_week: dayOfWeekEnum('day_of_week').notNull(),
+    department: varchar('department', { length: 255 }).notNull().default('Computer Science'),
     subject_name: varchar('subject_name', { length: 255 }).notNull(),
     subject_code: varchar('subject_code', { length: 50 }),
     instructor: varchar('instructor', { length: 255 }),
@@ -156,6 +157,7 @@ const timetable = pgTable('timetable', {
     updated_at: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
     index('timetable_day_start_idx').on(table.day_of_week, table.start_time),
+    index('timetable_dept_day_idx').on(table.department, table.day_of_week),
 ]);
 
 // ── Services ─────────────────────────────────────────────────────

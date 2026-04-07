@@ -1,4 +1,4 @@
-const { eq, asc } = require('drizzle-orm');
+const { eq, asc, and } = require('drizzle-orm');
 const db = require('../config/db');
 const { timetable } = require('../db/schema');
 const { asyncHandler } = require('../middleware/errorHandler');
@@ -10,11 +10,17 @@ const DAY_ORDER = {
 };
 
 const getTimetable = asyncHandler(async (req, res) => {
-    const { day } = req.query;
+    const { day, department } = req.query;
+
+    const conditions = [];
+    if (day) conditions.push(eq(timetable.day_of_week, day));
+    if (department) conditions.push(eq(timetable.department, department));
 
     let query = db.select().from(timetable);
-    if (day) {
-        query = query.where(eq(timetable.day_of_week, day));
+    if (conditions.length === 1) {
+        query = query.where(conditions[0]);
+    } else if (conditions.length > 1) {
+        query = query.where(and(...conditions));
     }
 
     let entries = await query.orderBy(asc(timetable.start_time));
@@ -32,13 +38,14 @@ const getTimetable = asyncHandler(async (req, res) => {
 });
 
 const createEntry = asyncHandler(async (req, res) => {
-    const { day_of_week, subject_name, subject_code, instructor, room, start_time, end_time } = req.body;
+    const { day_of_week, department, subject_name, subject_code, instructor, room, start_time, end_time } = req.body;
     if (!day_of_week || !subject_name || !start_time || !end_time) {
         return res.status(400).json({ error: 'day_of_week, subject_name, start_time, and end_time are required.' });
     }
 
     const [entry] = await db.insert(timetable).values({
         day_of_week,
+        department: department || 'Computer Science',
         subject_name,
         subject_code: subject_code || null,
         instructor: instructor || null,
