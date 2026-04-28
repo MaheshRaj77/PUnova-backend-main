@@ -3,7 +3,8 @@ const db = require('../config/db');
 const { lostFoundItems, users } = require('../db/schema');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { invalidateCache } = require('../middleware/cache');
-const { cloudinary } = require('../config/cloudinary');
+const { cloudinary, uploadToCloudinary, uploadDocumentToCloudinary } = require('../config/cloudinary');
+const logger = require('../config/logger');
 
 const getItems = asyncHandler(async (req, res) => {
     const { type } = req.query;
@@ -51,15 +52,26 @@ const createItem = asyncHandler(async (req, res) => {
 
     let image_url = null;
     if (req.file) {
-        const b64 = req.file.buffer.toString('base64');
-        const dataURI = `data:${req.file.mimetype};base64,${b64}`;
-        const result = await cloudinary.uploader.upload(dataURI, {
-            folder: 'campus_connect/lost_found',
-        });
-        image_url = result.secure_url;
+        try {
+            // Prefer streaming upload helpers for buffers (handles images and documents)
+            const isImage = /^image\//.test(req.file.mimetype || '');
+            if (isImage) {
+                const result = await uploadToCloudinary(req.file.buffer, 'campus_connect/lost_found');
+                image_url = result.url || result.secure_url || null;
+            } else {
+                const result = await uploadDocumentToCloudinary(req.file.buffer, 'campus_connect/lost_found');
+                image_url = result.url || result.secure_url || null;
+            }
+        } catch (err) {
+            console.error('LostFound: Cloudinary upload failed:', err && err.message ? err.message : err);
+            // Surface a clearer client error rather than an opaque 500 when uploads fail
+            return res.status(502).json({ error: 'File upload failed. Please try again later.' });
+        }
     }
 
-    const [item] = await db.insert(lostFoundItems).values({
+    let item;
+    try {
+        const resInsert = await db.insert(lostFoundItems).values({
         reported_by: req.user.id,
         item_type,
         title,
@@ -70,7 +82,12 @@ const createItem = asyncHandler(async (req, res) => {
         found_lost_date: found_lost_date ? new Date(found_lost_date) : null,
         contact_info: contact_info || null,
         image_url,
-    }).returning();
+        }).returning();
+        item = resInsert[0];
+    } catch (err) {
+        logger.error('LostFound: DB insert failed', err, { userId: req.user?.id });
+        return res.status(500).json({ error: 'Unable to save lost/found item. Please try again later.' });
+    }
 
     await invalidateCache('cache:/api/v1/lost-found');
     res.status(201).json({
@@ -88,20 +105,27 @@ const updateItemStatus = asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'status is required.' });
     }
 
-    const [item] = await db.update(lostFoundItems)
-        .set({ status, updated_at: new Date() })
-        .where(eq(lostFoundItems.id, id))
-        .returning();
+    let updatedItem;
+    try {
+        const resUpdate = await db.update(lostFoundItems)
+            .set({ status, updated_at: new Date() })
+            .where(eq(lostFoundItems.id, id))
+            .returning();
+        updatedItem = resUpdate[0];
+    } catch (err) {
+        logger.error('LostFound: DB update failed', err, { itemId: id, userId: req.user?.id });
+        return res.status(500).json({ error: 'Unable to update item status. Please try again later.' });
+    }
 
-    if (!item) {
+    if (!updatedItem) {
         return res.status(404).json({ error: 'Item not found.' });
     }
 
     await invalidateCache('cache:/api/v1/lost-found');
     res.json({
         item: {
-            ...item,
-            found_lost_date: item.found_lost_date ? item.found_lost_date.toISOString() : null,
+            ...updatedItem,
+            found_lost_date: updatedItem.found_lost_date ? updatedItem.found_lost_date.toISOString() : null,
         },
     });
 });
